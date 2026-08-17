@@ -1,0 +1,265 @@
+services:
+  # ===================== USER SERVICE =====================
+  userservice-postgres:
+    image: postgres:16-alpine
+    container_name: userservice-postgres
+    environment:
+      POSTGRES_DB: ${USER_DB_NAME}
+      POSTGRES_USER: ${USER_DB_USER}
+      POSTGRES_PASSWORD: ${USER_DB_PASSWORD}
+    ports:
+      - "${USER_DB_PORT}:5432"
+    volumes:
+      - userservice-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${USER_DB_USER} -d ${USER_DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - innowise-network
+    deploy:
+      resources:
+        limits:
+          memory: ${USER_POSTGRES_MEM_LIMIT}
+
+  userservice-redis:
+    image: redis:7-alpine
+    container_name: userservice-redis
+    ports:
+      - "${USER_REDIS_PORT}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - innowise-network
+    deploy:
+      resources:
+        limits:
+          memory: ${USER_REDIS_MEM_LIMIT}
+
+  userservice-app:
+    build:
+      context: ./userservice
+      dockerfile: Dockerfile
+    container_name: userservice-app
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 8080
+      DB_HOST: userservice-postgres
+      DB_PORT: 5432
+      DB_NAME: ${USER_DB_NAME}
+      DB_USER: ${USER_DB_USER}
+      DB_PASSWORD: ${USER_DB_PASSWORD}
+      REDIS_HOST: userservice-redis
+      REDIS_PORT: 6379
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM}
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
+    ports:
+      - "${USER_APP_PORT}:8080"
+    depends_on:
+      userservice-postgres:
+        condition: service_healthy
+      userservice-redis:
+        condition: service_healthy
+    networks:
+      - innowise-network
+    deploy:
+      resources:
+        limits:
+          memory: ${USER_APP_MEM_LIMIT}
+
+  # ===================== AUTH SERVICE =====================
+  authservice-postgres:
+    image: postgres:16-alpine
+    container_name: authservice-postgres
+    environment:
+      POSTGRES_DB: ${AUTH_DB_NAME}
+      POSTGRES_USER: ${AUTH_DB_USER}
+      POSTGRES_PASSWORD: ${AUTH_DB_PASSWORD}
+    ports:
+      - "${AUTH_DB_PORT_EXTERNAL}:5432"
+    volumes:
+      - authservice-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AUTH_DB_USER} -d ${AUTH_DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - innowise-network
+    deploy:
+      resources:
+        limits:
+          memory: ${AUTH_POSTGRES_MEM_LIMIT}
+
+  authservice-app:
+    build:
+      context: ./authservice
+      dockerfile: Dockerfile
+    container_name: authservice-app
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 8081
+      DB_HOST: authservice-postgres
+      DB_PORT: 5432
+      DB_NAME: ${AUTH_DB_NAME}
+      DB_USER: ${AUTH_DB_USER}
+      DB_PASSWORD: ${AUTH_DB_PASSWORD}
+      APP_NAME: ${AUTH_APP_NAME}
+      USER_SERVICE_NAME: userservice-app
+      USER_SERVICE_URL: ${USER_SERVICE_URL}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
+    ports:
+      - "${AUTH_APP_PORT}:8081"
+    depends_on:
+      authservice-postgres:
+        condition: service_healthy
+    networks:
+      - innowise-network
+    deploy:
+      resources:
+        limits:
+          memory: ${AUTH_APP_MEM_LIMIT}
+
+  keycloak:
+    container_name: keycloak
+    image: quay.io/keycloak/keycloak:latest
+    ports:
+      - "${KEYCLOAK_EXTERNAL_PORT}:8080"
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://authservice-postgres:5432/${AUTH_DB_NAME}
+      KC_DB_USERNAME: ${AUTH_DB_USER}
+      KC_DB_PASSWORD: ${AUTH_DB_PASSWORD}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_HOSTNAME: ${KEYCLOAK_HOSTNAME}
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_STRICT_HTTPS: "false"
+      KC_HTTP_ENABLED: "true"
+    networks:
+      - innowise-network
+    depends_on:
+      authservice-postgres:
+        condition: service_healthy
+    command:
+      - "start-dev"
+
+  # ===================== ORDER SERVICE =====================
+  orderservice-postgres:
+    image: postgres:16-alpine
+    container_name: orderservice-postgres
+    environment:
+      POSTGRES_DB: ${ORDER_DB_NAME}
+      POSTGRES_USER: ${ORDER_DB_USER}
+      POSTGRES_PASSWORD: ${ORDER_DB_PASSWORD}
+    ports:
+      - "${ORDER_DB_PORT}:5432"
+    volumes:
+      - orderservice-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${ORDER_DB_USER} -d ${ORDER_DB_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - innowise-network
+    deploy:
+      resources:
+        limits:
+          memory: ${ORDER_POSTGRES_MEM_LIMIT}
+
+  orderservice-redis:
+    image: redis:7-alpine
+    container_name: orderservice-redis
+    ports:
+      - "${ORDER_REDIS_PORT}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - innowise-network
+    deploy:
+      resources:
+        limits:
+          memory: ${ORDER_REDIS_MEM_LIMIT}
+
+  orderservice-app:
+    build:
+      context: ./orderservice
+      dockerfile: Dockerfile
+    container_name: orderservice-app
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 8083
+      DB_HOST: orderservice-postgres
+      DB_PORT: 5432
+      DB_NAME: ${ORDER_DB_NAME}
+      DB_USER: ${ORDER_DB_USER}
+      DB_PASSWORD: ${ORDER_DB_PASSWORD}
+      REDIS_HOST: orderservice-redis
+      REDIS_PORT: 6379
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM}
+      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      USER_SERVICE_NAME: userservice-app
+      USER_SERVICE_URL: ${USER_SERVICE_URL}
+      KEYCLOAK_URL: ${KEYCLOAK_URL}
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
+    ports:
+      - "${ORDER_APP_PORT}:8083"
+    depends_on:
+      orderservice-postgres:
+        condition: service_healthy
+      orderservice-redis:
+        condition: service_healthy
+    networks:
+      - innowise-network
+    deploy:
+      resources:
+        limits:
+          memory: ${ORDER_APP_MEM_LIMIT}
+
+  # ===================== API GATEWAY =====================
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      USER_SERVICE_URL: ${USER_SERVICE_URL}
+      AUTH_SERVICE_URL: ${AUTH_SERVICE_URL}
+      ORDER_SERVICE_URL: ${ORDER_SERVICE_URL}
+      KEYCLOAK_URL: ${KEYCLOAK_URL}
+      KEYCLOAK_REALM: ${KEYCLOAK_REALM}
+      KEYCLOAK_ISSUER_URI: ${KEYCLOAK_ISSUER_URI}
+    ports:
+      - "${GATEWAY_PORT}:8080"
+    depends_on:
+      - userservice-app
+      - authservice-app
+      - orderservice-app
+    networks:
+      - innowise-network
+    deploy:
+      resources:
+        limits:
+          memory: ${GATEWAY_MEM_LIMIT}
+
+networks:
+  innowise-network:
+    driver: bridge
+
+volumes:
+  userservice-postgres-data:
+  authservice-postgres-data:
+  orderservice-postgres-data:
