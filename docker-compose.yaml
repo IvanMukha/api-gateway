@@ -17,7 +17,7 @@ services:
       timeout: 5s
       retries: 10
     networks:
-      - innowise-network
+      - user-network
     deploy:
       resources:
         limits:
@@ -34,7 +34,7 @@ services:
       timeout: 5s
       retries: 10
     networks:
-      - innowise-network
+      - user-network
     deploy:
       resources:
         limits:
@@ -65,7 +65,8 @@ services:
       userservice-redis:
         condition: service_healthy
     networks:
-      - innowise-network
+      - user-network
+      - gateway-network
     deploy:
       resources:
         limits:
@@ -89,7 +90,7 @@ services:
       timeout: 5s
       retries: 10
     networks:
-      - innowise-network
+      - auth-network
     deploy:
       resources:
         limits:
@@ -121,7 +122,8 @@ services:
       authservice-postgres:
         condition: service_healthy
     networks:
-      - innowise-network
+      - auth-network
+      - gateway-network
     deploy:
       resources:
         limits:
@@ -144,7 +146,8 @@ services:
       KC_HOSTNAME_STRICT_HTTPS: "false"
       KC_HTTP_ENABLED: "true"
     networks:
-      - innowise-network
+      - auth-network
+      - gateway-network
     depends_on:
       authservice-postgres:
         condition: service_healthy
@@ -169,7 +172,7 @@ services:
       timeout: 5s
       retries: 10
     networks:
-      - innowise-network
+      - order-network
     deploy:
       resources:
         limits:
@@ -186,7 +189,7 @@ services:
       timeout: 5s
       retries: 10
     networks:
-      - innowise-network
+      - order-network
     deploy:
       resources:
         limits:
@@ -222,7 +225,8 @@ services:
       orderservice-redis:
         condition: service_healthy
     networks:
-      - innowise-network
+      - order-network
+      - gateway-network
     deploy:
       resources:
         limits:
@@ -249,14 +253,20 @@ services:
       - authservice-app
       - orderservice-app
     networks:
-      - innowise-network
+      - gateway-network
     deploy:
       resources:
         limits:
           memory: ${GATEWAY_MEM_LIMIT}
 
 networks:
-  innowise-network:
+  gateway-network:
+    driver: bridge
+  user-network:
+    driver: bridge
+  auth-network:
+      driver: bridge
+  order-network:
     driver: bridge
 
 volumes:

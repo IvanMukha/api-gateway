@@ -15,11 +15,17 @@ public class SecurityConfig {
     @Bean
     public SecurityWebFilterChain securityFilterChain(ServerHttpSecurity http) {
         return http
+                .csrf(ServerHttpSecurity.CsrfSpec::disable)
+                .httpBasic(ServerHttpSecurity.HttpBasicSpec::disable)
+                .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
                 .authorizeExchange(exchanges -> exchanges
-                        .matchers(ServerWebExchangeMatchers.pathMatchers("/v1/api/auth/**")).permitAll()
+                        .matchers(ServerWebExchangeMatchers
+                                .pathMatchers("/v1/api/auth/login",
+                                        "/v1/api/auth/sing-up",
+                                        "/v1/api/auth/refresh"))
+                        .permitAll()
                         .anyExchange().authenticated()
                 )
-                .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
                 .build();
     }
