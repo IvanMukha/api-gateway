@@ -22,7 +22,9 @@ public class SecurityConfig {
                         .matchers(ServerWebExchangeMatchers
                                 .pathMatchers("/v1/api/auth/login",
                                         "/v1/api/auth/sign-up",
-                                        "/v1/api/auth/refresh"))
+                                        "/v1/api/auth/refresh",
+                                        "/actuator/health",
+                                        "/actuator/health/**"))
                         .permitAll()
                         .anyExchange().authenticated()
                 )
