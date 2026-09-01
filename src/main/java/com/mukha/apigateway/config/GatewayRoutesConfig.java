@@ -29,13 +29,19 @@ public class GatewayRoutesConfig {
                 .route("order-service-route", r -> r
                         .path("/v1/api/items/**", "/v1/api/orders/**")
                         .uri(properties.orderServiceUrl()))
+
+                .route("payment-service-route", r-> r
+                        .path("/v1/api/payments/**")
+                        .uri(properties.paymentServiceUrl))
                 .build();
+
     }
 
     @ConfigurationProperties
     public record GatewayServicesProperties(
             String userServiceUrl,
             String authServiceUrl,
-            String orderServiceUrl
+            String orderServiceUrl,
+            String paymentServiceUrl
     ) {}
 }
